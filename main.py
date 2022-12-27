@@ -80,35 +80,34 @@ def lookup_media_files(input_dir, visit):
 def update_exif(filename, date):
     if filename.lower().endswith("jp2"):
         raise Exception("JP2 files are not supported")
-    with open(filename, "rb") as image_file:
-        image = Image.open(filename)
-        if filename.lower().endswith("heic"):
-            exifData = None
-        else:
-            exifData = image._getexif()
-        if exifData is None:
-            exif_ifd = {}
-            exif_dict = None
-        else:
-            exif_dict = piexif.load(image.info["exif"])
-            exif_ifd = exif_dict["Exif"]
-        stringified_date = date.strftime("%Y:%m:%d %H:%M:%S")
-        exif_ifd[piexif.ExifIFD.UserComment] = "From iCloud by Oleg".encode()
-        exif_ifd[piexif.ExifIFD.DateTimeOriginal] = stringified_date
-        exif_ifd[piexif.ExifIFD.DateTimeDigitized] = stringified_date
+    image = Image.open(filename)
+    if filename.lower().endswith("heic"):
+        exifData = None
+    else:
+        exifData = image._getexif()
+    if exifData is None:
+        exif_ifd = {}
+        exif_dict = None
+    else:
+        exif_dict = piexif.load(image.info["exif"])
+        exif_ifd = exif_dict["Exif"]
+    stringified_date = date.strftime("%Y:%m:%d %H:%M:%S")
+    exif_ifd[piexif.ExifIFD.UserComment] = "From iCloud by Oleg".encode()
+    exif_ifd[piexif.ExifIFD.DateTimeOriginal] = stringified_date
+    exif_ifd[piexif.ExifIFD.DateTimeDigitized] = stringified_date
 
-        if not exif_dict:
-            exif_dict = {
-                "0th": {306: stringified_date},
-                "Exif": exif_ifd,
-                "1st": {},
-                "thumbnail": None,
-            }
-        else:
-            if "0th" in exif_dict:
-                exif_dict["0th"][306] = stringified_date
-        exif_dat = piexif.dump(exif_dict)
-        image.save(filename, exif=exif_dat, quality=100, subsampling=0)
+    if not exif_dict:
+        exif_dict = {
+            "0th": {306: stringified_date},
+            "Exif": exif_ifd,
+            "1st": {},
+            "thumbnail": None,
+        }
+    else:
+        if "0th" in exif_dict:
+            exif_dict["0th"][306] = stringified_date
+    exif_dat = piexif.dump(exif_dict)
+    image.save(filename, exif=exif_dat, quality=100, subsampling=0)
 
 
 def move_to_target(filename, date: datetime.datetime, output_dir):
