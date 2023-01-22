@@ -10,6 +10,7 @@ import shutil
 import piexif
 from PIL import Image
 from pillow_heif import register_heif_opener
+import exifread
 
 register_heif_opener()
 
@@ -81,10 +82,10 @@ def update_exif(filename, date):
     if filename.lower().endswith("jp2"):
         raise Exception("JP2 files are not supported")
     image = Image.open(filename)
-    if filename.lower().endswith("heic"):
-        exifData = None
-    else:
-        exifData = image._getexif()
+    # if filename.lower().endswith("heic"):
+    #     exifData = None
+    # else:
+    exifData = image._getexif()
     if exifData is None:
         exif_ifd = {}
         exif_dict = None
@@ -119,6 +120,17 @@ def move_to_target(filename, date: datetime.datetime, output_dir):
     shutil.move(filename, os.path.join(target_dir, os.path.basename(filename)))
 
 
+def move_to_target_reading_exif(filename, output_dir):
+    if filename.lower().endswith("heic"):
+        f = open(filename, 'rb')
+        tags = exifread.process_file(f)
+        if 'EXIF DateTimeOriginal' in tags:
+            original = tags['EXIF DateTimeOriginal'].values
+            date = datetime.datetime.strptime(original, '%Y:%m:%d %H:%M:%S')
+
+            move_to_target(filename, date, output_dir)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -133,6 +145,13 @@ def main():
         required=True,
         help="Input directory, where pictures and index files will be found.",
     )
+    parser.add_argument(
+        "-e", "--only-with-existing-exif",
+        help="Move only media files with existing recognized creation time in EXIF.",
+        type=bool,
+        action=argparse.BooleanOptionalAction,
+        required=False
+    )
     args = parser.parse_args()
     output_dir = args.output
     input_dir = args.input
@@ -145,8 +164,12 @@ def main():
             filename = os.path.basename(file)
             if filename not in file_to_date:
                 return
-            update_exif(file, file_to_date[filename])
-            move_to_target(file, file_to_date[filename], output_dir)
+            if args.only_with_existing_exif:
+                move_to_target_reading_exif(file, output_dir)
+            else:
+                update_exif(file, file_to_date[filename])
+                move_to_target(file, file_to_date[filename], output_dir)
+
         except Exception:
             logging.exception(f"Error happened while processing {filename}")
 
